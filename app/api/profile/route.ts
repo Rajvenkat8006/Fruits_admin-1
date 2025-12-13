@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true,  createdAt: true },
     })
     if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json(user)
@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest) {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { name, email },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true },
     })
     return NextResponse.json(user)
   } catch (error) {
