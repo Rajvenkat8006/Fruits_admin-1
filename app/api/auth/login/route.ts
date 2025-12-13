@@ -141,6 +141,8 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
 }
 
+export const dynamic = 'force-dynamic'
+
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders })
 }
