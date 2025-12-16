@@ -114,5 +114,28 @@ model OrderItem {
   product   Product   @relation(fields: [productId], references: [id])
   order     Order     @relation(fields: [orderId], references: [id])
 
+
   @@map("order_items")
 }
+
+model Banner {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  title     String?
+  image     String
+  link      String?
+
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([position])
+  @@map("banners")
+}
+

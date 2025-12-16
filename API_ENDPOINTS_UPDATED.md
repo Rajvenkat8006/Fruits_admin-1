@@ -1,6 +1,6 @@
 # API ENDPOINTS - Updated with Registration
 
-## All 21 API Endpoints (Added Registration)
+## All 26 API Endpoints (Added Banners)
 
 ### 1. AUTH ENDPOINTS (2)
 
@@ -413,6 +413,111 @@ Response (200):
 
 ---
 
+### 7. BANNER ENDPOINTS (5)
+
+#### 7.1 Get All Banners
+```
+GET /api/admin/banners
+
+Response (200):
+[
+  {
+    "id": "banner-uuid",
+    "title": "Summer Sale",
+    "image": "https://example.com/banner.jpg",
+    "link": "/products/sale",
+    "position": 0,
+    "isActive": true,
+    "startDate": "2023-06-01T00:00:00.000Z",
+    "endDate": "2023-08-31T23:59:59.999Z"
+  }
+]
+```
+
+#### 7.2 Create Banner
+```
+POST /api/admin/banners
+Content-Type: application/json
+
+Request Body:
+{
+  "title": "Summer Sale",
+  "image": "https://example.com/banner.jpg",
+  "link": "/products/sale",
+  "position": 0,
+  "isActive": true,
+  "startDate": "2023-06-01",
+  "endDate": "2023-08-31"
+}
+
+Response (201):
+{
+  "id": "banner-uuid",
+  "title": "Summer Sale",
+  "image": "https://example.com/banner.jpg",
+  "link": "/products/sale",
+  "position": 0,
+  "isActive": true,
+  "startDate": "2023-06-01T00:00:00.000Z",
+  "endDate": "2023-08-31T00:00:00.000Z",
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
+
+#### 7.3 Get Single Banner
+```
+GET /api/admin/banners/{id}
+
+Response (200):
+{
+  "id": "banner-uuid",
+  "title": "Summer Sale",
+  "image": "https://example.com/banner.jpg",
+  "link": "/products/sale",
+  "position": 0,
+  "isActive": true,
+  "startDate": "2023-06-01T00:00:00.000Z",
+  "endDate": "2023-08-31T00:00:00.000Z"
+}
+```
+
+#### 7.4 Update Banner
+```
+PUT /api/admin/banners/{id}
+Content-Type: application/json
+
+Request Body:
+{
+  "title": "Winter Sale",
+  "isActive": false
+}
+
+Response (200):
+{
+  "id": "banner-uuid",
+  "title": "Winter Sale",
+  "image": "https://example.com/banner.jpg",
+  "link": "/products/sale",
+  "position": 0,
+  "isActive": false,
+  "startDate": "2023-06-01T00:00:00.000Z",
+  "endDate": "2023-08-31T00:00:00.000Z"
+}
+```
+
+#### 7.5 Delete Banner
+```
+DELETE /api/admin/banners/{id}
+
+Response (200):
+{
+  "message": "Banner deleted successfully"
+}
+```
+
+---
+
 ## Pages Created
 
 ### Authentication Pages
@@ -467,6 +572,13 @@ Response (200):
    - GET user profile
    - Update profile
 
+8. **Banner Operations**
+   - GET all banners
+   - Create new banner
+   - Get single banner
+   - Update banner
+   - Delete banner
+
 ---
 
 ## Status Codes Reference
@@ -484,10 +596,11 @@ Response (200):
 
 ---
 
-## Total Endpoints: 21
+## Total Endpoints: 26
 - Auth: 2
 - Categories: 5
 - Products: 5
 - Cart: 4
 - Watchlist: 3
 - Profile: 2
+- Banners: 5
