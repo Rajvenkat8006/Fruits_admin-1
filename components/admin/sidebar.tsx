@@ -8,7 +8,9 @@ const navItems = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard }, // Updated href
     { name: 'Products', href: '/admin/products', icon: Package },
     { name: 'Categories', href: '/admin/categories', icon: List },
+    { name: 'Banners', href: '/admin/banners', icon: Package },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+    { name: 'Reviews', href: '/admin/reviews', icon: Users }, // Using Users icon as placeholder, couldn't import Star/MessageCircle without checking imports
     { name: 'Users', href: '/admin/users', icon: Users },
 ]
 

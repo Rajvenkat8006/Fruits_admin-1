@@ -1,5 +1,3 @@
-// Prisma Schema for Fruits App (MongoDB)
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,8 +6,6 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
-
-
 
 enum OrderStatus {
   PENDING
@@ -39,31 +35,74 @@ model Product {
   image       String?
   stock       Int         @default(0)
   featured    Boolean     @default(false)
+
   categoryId  String      @db.ObjectId
   category    Category    @relation(fields: [categoryId], references: [id])
+
   cartItems   Cart[]
   watchlists  Watchlist[]
   orderItems  OrderItem[]
+  reviews     Review[]
+
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  @@map("products")
   @@index([name])
+  @@map("products")
 }
 
 model User {
-  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
   name       String?
-  email      String?    @unique
+  email      String?       @unique
   password   String
 
   cart       Cart[]
   watchlist  Watchlist[]
   orders     Order[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  reviews    Review[]
+  reviewLikes ReviewLike[]
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@map("users")
+}
+
+model Review {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  rating    Int
+  comment   String?
+
+  userId    String        @db.ObjectId
+  productId String        @db.ObjectId
+
+  user      User          @relation(fields: [userId], references: [id])
+  product   Product       @relation(fields: [productId], references: [id])
+  likes     ReviewLike[]
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("reviews")
+}
+
+model ReviewLike {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId    String   @db.ObjectId
+  reviewId  String   @db.ObjectId
+
+  user      User     @relation(fields: [userId], references: [id])
+  review    Review   @relation(fields: [reviewId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+  @@map("review_likes")
 }
 
 model Cart {
@@ -71,8 +110,10 @@ model Cart {
   userId    String    @db.ObjectId
   productId String    @db.ObjectId
   quantity  Int       @default(1)
+
   user      User      @relation(fields: [userId], references: [id])
   product   Product   @relation(fields: [productId], references: [id])
+
   addedAt   DateTime  @default(now())
 
   @@unique([userId, productId])
@@ -83,8 +124,10 @@ model Watchlist {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   userId    String    @db.ObjectId
   productId String    @db.ObjectId
+
   user      User      @relation(fields: [userId], references: [id])
   product   Product   @relation(fields: [productId], references: [id])
+
   addedAt   DateTime  @default(now())
 
   @@unique([userId, productId])
@@ -96,13 +139,15 @@ model Order {
   userId    String       @db.ObjectId
   total     Float
   status    OrderStatus  @default(PENDING)
+
   items     OrderItem[]
   user      User         @relation(fields: [userId], references: [id])
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  @@map("orders")
   @@index([status])
+  @@map("orders")
 }
 
 model OrderItem {
@@ -111,16 +156,15 @@ model OrderItem {
   productId String    @db.ObjectId
   price     Float
   quantity  Int       @default(1)
+
   product   Product   @relation(fields: [productId], references: [id])
   order     Order     @relation(fields: [orderId], references: [id])
-
 
   @@map("order_items")
 }
 
 model Banner {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-
   title     String?
   image     String
   link      String?
@@ -138,4 +182,3 @@ model Banner {
   @@index([position])
   @@map("banners")
 }
-

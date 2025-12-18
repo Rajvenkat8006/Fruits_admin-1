@@ -14,6 +14,112 @@ Authorization: Bearer <jwt-token-from-login>
 
 ---
 
+
+---
+
+## 7. REVIEW ENDPOINTS
+
+### 7.1 Create Review
+**POST** `/api/reviews`
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Body (JSON):**
+```json
+{
+  "productId": "507f1f77bcf86cd799439013",
+  "rating": 5,
+  "comment": "Totally amazing product!"
+}
+```
+
+**Expected Response (201):**
+```json
+{
+  "id": "607f1f77bcf86cd799439099",
+  "rating": 5,
+  "comment": "Totally amazing product!",
+  "userId": "507f1f77bcf86cd799439015",
+  "productId": "507f1f77bcf86cd799439013",
+  "createdAt": "2025-12-11T12:00:00Z",
+  "updatedAt": "2025-12-11T12:00:00Z"
+}
+```
+
+### 7.2 Like/Unlike Review
+**POST** `/api/reviews/607f1f77bcf86cd799439099/like`
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Expected Response (200) - Liked:**
+```json
+{
+  "message": "Liked",
+  "liked": true
+}
+```
+
+**Expected Response (200) - Unliked:**
+```json
+{
+  "message": "Unliked",
+  "liked": false
+}
+```
+
+### 7.3 Get All Reviews (Admin)
+**GET** `/api/admin/reviews`
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Expected Response (200):**
+```json
+[
+  {
+    "id": "607f1f77bcf86cd799439099",
+    "rating": 5,
+    "comment": "Totally amazing product!",
+    "user": {
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "product": {
+      "name": "Apple",
+      "image": "https://example.com/apple.jpg"
+    }
+  }
+]
+```
+
+### 7.4 Delete Review (Admin)
+**DELETE** `/api/admin/reviews/607f1f77bcf86cd799439099`
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Expected Response (200):**
+```json
+{
+  "message": "Review deleted successfully"
+}
+```
+
+
+---
+
 ## 1. AUTH ENDPOINTS
 
 ### 1.1 Login User
@@ -313,7 +419,7 @@ Content-Type: application/json
 **Headers:**
 ```
 Content-Type: application/json
-x-user-id: 507f1f77bcf86cd799439015
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Expected Response (200):**
@@ -341,12 +447,12 @@ x-user-id: 507f1f77bcf86cd799439015
 **Headers:**
 ```
 Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Body (JSON):**
 ```json
 {
-  "userId": "507f1f77bcf86cd799439015",
   "productId": "507f1f77bcf86cd799439013",
   "quantity": 3
 }
@@ -374,6 +480,7 @@ Content-Type: application/json
 **Headers:**
 ```
 Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Body (JSON):**
@@ -405,6 +512,7 @@ Content-Type: application/json
 **Headers:**
 ```
 Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Expected Response (200):**
@@ -424,7 +532,7 @@ Content-Type: application/json
 **Headers:**
 ```
 Content-Type: application/json
-x-user-id: 507f1f77bcf86cd799439015
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Expected Response (200):**
@@ -451,12 +559,12 @@ x-user-id: 507f1f77bcf86cd799439015
 **Headers:**
 ```
 Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Body (JSON):**
 ```json
 {
-  "userId": "507f1f77bcf86cd799439015",
   "productId": "507f1f77bcf86cd799439014"
 }
 ```
@@ -482,6 +590,7 @@ Content-Type: application/json
 **Headers:**
 ```
 Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
 ```
 
 **Expected Response (200):**
@@ -544,6 +653,138 @@ x-user-id: 507f1f77bcf86cd799439015
 
 ---
 
+## 8. ORDER ENDPOINTS
+
+### 8.1 Create Order (Checkout)
+**POST** `/api/orders`
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Body (JSON):**
+Empty body required (uses items from user's cart).
+
+**Expected Response (201):**
+```json
+{
+  "id": "607f1f77bcf86cd799439100",
+  "userId": "507f1f77bcf86cd799439015",
+  "total": 5.97,
+  "status": "PENDING",
+  "items": [
+    {
+      "id": "607f1f77bcf86cd799439101",
+      "productId": "507f1f77bcf86cd799439013",
+      "price": 1.99,
+      "quantity": 3,
+      "product": {
+        "name": "Apple",
+        "image": "https://example.com/apple.jpg"
+      }
+    }
+  ],
+  "createdAt": "2025-12-11T12:30:00Z",
+  "updatedAt": "2025-12-11T12:30:00Z"
+}
+```
+
+### 8.2 Get My Orders
+**GET** `/api/orders`
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Expected Response (200):**
+```json
+[
+  {
+    "id": "607f1f77bcf86cd799439100",
+    "total": 5.97,
+    "status": "PENDING",
+    "items": [],
+    "createdAt": "2025-12-11T12:30:00Z"
+  }
+]
+```
+
+### 8.3 Get Single Order
+**GET** `/api/orders/607f1f77bcf86cd799439100`
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Expected Response (200):**
+```json
+{
+  "id": "607f1f77bcf86cd799439100",
+  "total": 5.97,
+  "status": "PENDING",
+  "items": []
+}
+```
+
+---
+
+## 9. ADMIN ORDER ENDPOINTS
+
+### 9.1 Get All Orders (Admin)
+**GET** `/api/admin/orders`
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Expected Response (200):**
+```json
+[
+  {
+    "id": "607f1f77bcf86cd799439100",
+    "user": {
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "total": 5.97,
+    "status": "PENDING",
+    "items": []
+  }
+]
+```
+
+### 9.2 Update Order Status (Admin)
+**PATCH** `/api/admin/orders`
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <jwt-token-from-login>
+```
+
+**Body (JSON):**
+```json
+{
+  "id": "607f1f77bcf86cd799439100",
+  "status": "PAID"
+}
+```
+
+**Expected Response (200):**
+```json
+{
+  "id": "607f1f77bcf86cd799439100",
+  "status": "PAID"
+}
+```
+
+---
+
 ## Testing Flow (Recommended Order)
 
 1. **Login** - Get user ID and token
@@ -561,6 +802,10 @@ x-user-id: 507f1f77bcf86cd799439015
 13. **Update Product** - Modify product details
 14. **Delete Product** - Remove product
 15. **Delete Category** - Remove category
+16. **Create Order** - Checkout from cart
+17. **Get My Orders** - Verify order creation
+18. **Get Admin Orders** - View as admin
+19. **Update Order Status** - Change status
 
 ---
 
@@ -604,7 +849,7 @@ x-user-id: 507f1f77bcf86cd799439015
 4. **Prices**: Use Float values (e.g., 1.99, 2.50)
 5. **Stock**: Use integers (e.g., 100, 150)
 6. **Headers**: Always include `Content-Type: application/json`
-7. **Protected Routes**: Cart, Watchlist, Profile require `x-user-id` header
+7. **Protected Routes**: Cart, Watchlist, Profile, Orders require `Authorization` header (Bearer Token)
 
 ---
 
@@ -617,4 +862,5 @@ CATEGORY_ID=<from-create-category>
 PRODUCT_ID=<from-create-product>
 CART_ITEM_ID=<from-add-to-cart>
 WATCHLIST_ITEM_ID=<from-add-to-watchlist>
+ORDER_ID=<from-create-order>
 ```
