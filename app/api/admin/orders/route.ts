@@ -52,11 +52,16 @@ export async function GET(request: NextRequest) {
         // Safer to transform here to keep frontend stable.
         const formattedOrders = orders.map(order => ({
             ...order,
+            user: order.user || { name: 'Unknown User', email: 'N/A' },
             items: order.items.map(item => ({
                 ...item,
-                product: {
+                product: item.product ? {
                     ...item.product,
-                    imageUrl: item.product.image // Map 'image' to 'imageUrl'
+                    imageUrl: item.product.image
+                } : {
+                    name: 'Product Deleted',
+                    image: null,
+                    imageUrl: null
                 }
             }))
         }))
