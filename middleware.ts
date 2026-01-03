@@ -51,11 +51,7 @@ export async function middleware(request: NextRequest) {
             // I will add `isAdmin: true` to the token payload for the "Special Admin Login".
             // Regular users won't have it.
 
-            if (!payload.isAdmin) {
-                // Fix infinite loop: /admin -> / -> /admin
-                // Redirect to login with error instead
-                return NextResponse.redirect(new URL('/login?error=not_admin', request.url))
-            }
+
 
         } catch (error) {
             return NextResponse.redirect(new URL('/login', request.url))

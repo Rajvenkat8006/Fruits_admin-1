@@ -13,6 +13,7 @@ export async function GET() {
 
     return NextResponse.json(formatted)
   } catch (error) {
+    console.error('Error fetching products:', error)
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
   }
 }
@@ -38,9 +39,9 @@ export async function POST(request: NextRequest) {
     const slug = incomingSlug
       ? String(incomingSlug)
       : String(name || '')
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
 
     const product = await prisma.product.create({
       data: {

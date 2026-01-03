@@ -9,15 +9,15 @@ interface DashboardStats {
   totalProducts: number
   totalCategories: number
   totalOrders: number
+  totalRevenue: number
+  recentOrders: Array<{
+    id: string
+    user: string
+    amount: number
+    status: string
+    date: string
+  }>
 }
-
-const recentOrders = [
-  { id: '#ORD-001', user: 'John Doe', amount: 45.99, status: 'Completed', date: '2 mins ago' },
-  { id: '#ORD-002', user: 'Jane Smith', amount: 120.50, status: 'Processing', date: '15 mins ago' },
-  { id: '#ORD-003', user: 'Mike Johnson', amount: 75.20, status: 'Pending', date: '1 hour ago' },
-  { id: '#ORD-004', user: 'Sarah Wilson', amount: 32.00, status: 'Completed', date: '3 hours ago' },
-  { id: '#ORD-005', user: 'Tom Brown', amount: 210.00, status: 'Processing', date: '5 hours ago' },
-]
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -52,7 +52,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Revenue"
-          value="$12,450"
+          value={stats ? `$${stats.totalRevenue.toFixed(2)}` : "$0.00"}
           change="+12.5%"
           isPositive={true}
           icon={DollarSign}
@@ -104,20 +104,20 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {recentOrders.map((order) => (
+              {stats?.recentOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.id}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.id.slice(-6).toUpperCase()}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{order.user}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">${order.amount}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">${order.amount.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${order.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        order.status === 'Processing' ? 'bg-blue-100 text-blue-800' :
+                      ${order.status === 'PAID' || order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                        order.status === 'PENDING' ? 'bg-blue-100 text-blue-800' :
                           'bg-yellow-100 text-yellow-800'}`}>
                       {order.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{order.date}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
