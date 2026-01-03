@@ -14,14 +14,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, slug: providedSlug } = await request.json()
+    const { name, icon, slug: providedSlug } = await request.json()
 
     // Generate slug if not provided
     const slug = providedSlug || name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')
 
-    const category = await prisma.category.create({ data: { name, slug } })
+    const category = await prisma.category.create({ data: { name, icon, slug } })
     return NextResponse.json(category, { status: 201 })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create category' }, { status: 500 })
+    console.error('Error creating category:', error)
+    return NextResponse.json({ error: 'Failed to create category', details: (error as Error).message }, { status: 500 })
   }
 }

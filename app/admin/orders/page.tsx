@@ -33,7 +33,7 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/admin/orders')
+      const res = await fetch('/api/orders')
       if (res.ok) {
         const data = await res.json()
         setOrders(data)
@@ -130,8 +130,8 @@ export default function OrdersPage() {
                         #{order.id.slice(-6)}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{order.user.name}</div>
-                        <div className="text-xs text-gray-500">{order.user.email}</div>
+                        <div className="text-sm font-medium text-gray-900">{order.user?.name || 'Unknown User'}</div>
+                        <div className="text-xs text-gray-500">{order.user?.email || 'No Email'}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {new Date(order.createdAt).toLocaleDateString()}
