@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, createdAt: true, profilePic: true },
     })
     if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json(user)
@@ -58,8 +58,11 @@ export async function PUT(request: NextRequest) {
       select: { id: true, name: true, email: true, profilePic: true },
     })
     return NextResponse.json(user)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Profile update error:', error)
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
     return NextResponse.json({ error: 'Failed to update' }, { status: 500 })
   }
 }
