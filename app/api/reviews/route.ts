@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 
+
 const reviewSchema = z.object({
     productId: z.string().min(1, 'Product ID is required'),
     rating: z.number().int().min(1).max(5),
@@ -11,7 +12,6 @@ const reviewSchema = z.object({
 
 export async function POST(request: NextRequest) {
     try {
-        // Authenticate User
         // Authenticate User
         let token = request.cookies.get('token')?.value
         if (!token) {
@@ -68,5 +68,35 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error creating review:', error)
         return NextResponse.json({ error: 'Failed to create review' }, { status: 500 })
+    }
+}
+
+export async function GET(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const productId = searchParams.get('productId')
+
+        if (!productId) {
+            return NextResponse.json({ error: 'Product ID required' }, { status: 400 })
+        }
+
+        const reviews = await prisma.review.findMany({
+            where: { productId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        profilePic: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        })
+
+        return NextResponse.json(reviews)
+    } catch (error) {
+        console.error('Error fetching reviews:', error)
+        return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 })
     }
 }

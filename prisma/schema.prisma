@@ -80,7 +80,7 @@ model User {
   name       String?
   email      String?       @unique
   password   String
-
+  profilePic String?
   cart       Cart[]
   watchlist  Watchlist[]
   orders     Order[]
