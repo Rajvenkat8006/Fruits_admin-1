@@ -1,18 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { requireAuth, jsonError } from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('token')?.value
-    if (!token) return NextResponse.json({ authenticated: false }, { status: 401 })
+    const auth = requireAuth(request)
 
-    const verified = await verifyAuth(token)
-    if (!verified) return NextResponse.json({ authenticated: false }, { status: 401 })
+    const user = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        profilePic: true,
+        role: true,
+        status: true,
+        shopId: true,
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
+        createdAt: true,
+      },
+    })
 
-    return NextResponse.json({ authenticated: true, payload: verified })
-  } catch (err) {
-    return NextResponse.json({ authenticated: false }, { status: 500 })
+    if (!user) {
+      return NextResponse.json({ authenticated: false }, { status: 401 })
+    }
+
+    return NextResponse.json({
+      authenticated: true,
+      user,
+    })
+  } catch (error) {
+    return jsonError(error)
   }
 }

@@ -1,73 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import {
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  jsonError,
+} from '@/lib/rbac'
 
-const bannerUpdateSchema = z.object({
-    title: z.string().optional(),
-    image: z.string().optional(),
-    link: z.string().optional(),
-    position: z.number().int().optional(),
-    isActive: z.boolean().optional(),
-    startDate: z.string().optional().nullable().transform((str) => str ? new Date(str) : null), // Handle nullable updates
-    endDate: z.string().optional().nullable().transform((str) => str ? new Date(str) : null),
-})
+export const dynamic = 'force-dynamic'
 
 export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    try {
-        const banner = await prisma.banner.findUnique({
-            where: { id: params.id },
-        })
+  try {
+    requireAdmin(requireAuth(request))
 
-        if (!banner) {
-            return NextResponse.json({ error: 'Banner not found' }, { status: 404 })
-        }
+    const banner = await prisma.banner.findUnique({
+      where: { id: params.id },
+    })
 
-        return NextResponse.json(banner)
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch banner' }, { status: 500 })
+    if (!banner) {
+      return NextResponse.json({ error: 'Banner not found' }, { status: 404 })
     }
+
+    return NextResponse.json(banner)
+  } catch (error) {
+    return jsonError(error)
+  }
 }
 
 export async function PUT(
-    request: NextRequest,
-    { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    try {
-        const body = await request.json()
+  try {
+    requireSuperAdmin(requireAuth(request))
 
-        // Validate request body
-        const validation = bannerUpdateSchema.safeParse(body)
-        if (!validation.success) {
-            return NextResponse.json({ error: validation.error.format() }, { status: 400 })
-        }
+    const body = await request.json()
+    const data: Record<string, unknown> = {}
 
-        const banner = await prisma.banner.update({
-            where: { id: params.id },
-            data: validation.data,
-        })
-
-        return NextResponse.json(banner)
-    } catch (error) {
-        console.error('Error updating banner:', error)
-        return NextResponse.json({ error: 'Failed to update banner' }, { status: 500 })
+    if (body.title !== undefined) data.title = body.title
+    if (body.image !== undefined) data.image = body.image
+    if (body.link !== undefined) data.link = body.link
+    if (body.position !== undefined) data.position = Number(body.position)
+    if (body.isActive !== undefined) data.isActive = Boolean(body.isActive)
+    if (body.startDate !== undefined) {
+      data.startDate = body.startDate ? new Date(body.startDate) : null
     }
+    if (body.endDate !== undefined) {
+      data.endDate = body.endDate ? new Date(body.endDate) : null
+    }
+
+    const banner = await prisma.banner.update({
+      where: { id: params.id },
+      data,
+    })
+
+    return NextResponse.json(banner)
+  } catch (error) {
+    return jsonError(error)
+  }
 }
 
 export async function DELETE(
-    request: NextRequest,
-    { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    try {
-        await prisma.banner.delete({
-            where: { id: params.id },
-        })
-
-        return NextResponse.json({ message: 'Banner deleted successfully' })
-    } catch (error) {
-        console.error('Error deleting banner:', error)
-        return NextResponse.json({ error: 'Failed to delete banner' }, { status: 500 })
-    }
+  try {
+    requireSuperAdmin(requireAuth(request))
+    await prisma.banner.delete({ where: { id: params.id } })
+    return NextResponse.json({ message: 'Banner deleted successfully' })
+  } catch (error) {
+    return jsonError(error)
+  }
 }

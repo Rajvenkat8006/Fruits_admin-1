@@ -1,110 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { OrderStatus } from '@prisma/client'
+import {
+  requireAuth,
+  requireAdmin,
+  assertShopAccess,
+  shopScopeFilter,
+  jsonError,
+} from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
+const ADMIN_STATUS_FLOW: OrderStatus[] = [
+  OrderStatus.PENDING,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PREPARING,
+  OrderStatus.READY,
+  OrderStatus.ASSIGNED,
+  OrderStatus.CANCELLED,
+  OrderStatus.PROCESSING,
+  OrderStatus.PAID,
+  OrderStatus.FULFILLED,
+  OrderStatus.DELIVERED,
+  OrderStatus.REFUNDED,
+]
+
 export async function GET(request: NextRequest) {
-    try {
-        const token = request.cookies.get('token')?.value || request.headers.get('Authorization')?.split(' ')[1]
+  try {
+    const auth = requireAdmin(requireAuth(request))
+    const scope = shopScopeFilter(auth)
 
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        const payload = await verifyToken(token)
-        if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-        }
-
-        // Fetch user to verify authenticaton
-        const user = await prisma.user.findUnique({ where: { id: payload.userId } })
-        if (!user) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-
-        const orders = await prisma.order.findMany({
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        email: true
-                    }
-                },
-                items: {
-                    include: {
-                        product: {
-                            select: {
-                                name: true,
-                                image: true // Fixed: schema uses 'image' not 'imageUrl'
-                            }
-                        }
-                    }
-                }
+    const orders = await prisma.order.findMany({
+      where: scope,
+      include: {
+        user: { select: { name: true, email: true } },
+        shop: { select: { id: true, name: true } },
+        deliveryBoy: { select: { id: true, name: true, email: true } },
+        items: {
+          include: {
+            product: {
+              select: { name: true, image: true },
             },
-            orderBy: {
-                createdAt: 'desc'
-            }
-        })
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
 
-        // Map response to match frontend expectation if needed, or update frontend
-        // Frontend expects 'imageUrl', so let's transform or update frontend. 
-        // Safer to transform here to keep frontend stable.
-        const formattedOrders = orders.map(order => ({
-            ...order,
-            user: order.user || { name: 'Unknown User', email: 'N/A' },
-            items: order.items.map(item => ({
-                ...item,
-                product: item.product ? {
-                    ...item.product,
-                    imageUrl: item.product.image
-                } : {
-                    name: 'Product Deleted',
-                    image: null,
-                    imageUrl: null
-                }
-            }))
-        }))
+    const formattedOrders = orders.map((order) => ({
+      ...order,
+      user: order.user || { name: 'Unknown User', email: 'N/A' },
+      items: order.items.map((item) => ({
+        ...item,
+        product: item.product
+          ? { ...item.product, imageUrl: item.product.image }
+          : { name: 'Product Deleted', image: null, imageUrl: null },
+      })),
+    }))
 
-        return NextResponse.json(formattedOrders)
-    } catch (error) {
-        console.error('Failed to fetch orders:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
+    return NextResponse.json(formattedOrders)
+  } catch (error) {
+    return jsonError(error)
+  }
 }
 
 export async function PATCH(request: NextRequest) {
-    try {
-        const token = request.cookies.get('token')?.value || request.headers.get('Authorization')?.split(' ')[1]
+  try {
+    const auth = requireAdmin(requireAuth(request))
+    const { id, status } = await request.json()
 
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        const payload = await verifyToken(token)
-        if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-        }
-
-        const user = await prisma.user.findUnique({ where: { id: payload.userId } })
-        if (!user) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-
-        const { id, status } = await request.json()
-
-        if (!id || !status) {
-            return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-        }
-
-        const order = await prisma.order.update({
-            where: { id },
-            data: { status }
-        })
-
-        return NextResponse.json(order)
-    } catch (error) {
-        console.error('Failed to update order:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    if (!id || !status) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
+
+    if (!ADMIN_STATUS_FLOW.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+
+    const existing = await prisma.order.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    assertShopAccess(auth, existing.shopId)
+
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status },
+    })
+
+    return NextResponse.json(order)
+  } catch (error) {
+    return jsonError(error)
+  }
 }

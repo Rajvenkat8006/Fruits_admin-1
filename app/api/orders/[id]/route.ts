@@ -1,60 +1,79 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { OrderStatus, Role } from '@prisma/client'
+import {
+  requireAuth,
+  requireRoles,
+  jsonError,
+  ApiError,
+} from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-    try {
-        const token = request.headers.get('Authorization')?.split(' ')[1]
-        const cookieToken = request.cookies.get('token')?.value
-        const validToken = token || cookieToken
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const auth = requireRoles(requireAuth(request), [Role.USER])
 
-        if (!validToken) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
+    const order = await prisma.order.findUnique({
+      where: { id: params.id },
+      include: {
+        shop: { select: { id: true, name: true, phone: true } },
+        deliveryBoy: { select: { id: true, name: true } },
+        items: {
+          include: {
+            product: { select: { name: true, image: true } },
+          },
+        },
+        shippingAddress: true,
+        payments: true,
+      },
+    })
 
-        const payload = await verifyToken(validToken)
-        if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-        }
-
-        const order = await prisma.order.findUnique({
-            where: { id: params.id },
-            include: {
-                items: {
-                    include: {
-                        product: {
-                            select: {
-                                name: true,
-                                image: true
-                            }
-                        }
-                    }
-                },
-                shippingAddress: true,
-            }
-        })
-
-        if (!order) {
-            return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-        }
-
-        // Only allow owner or admin to view
-        // Ideally we check role, but for now we check userId logic.
-        // If we had role in payload, we could check that.
-        // Let's assume user.role is available if we fetched user, but we only have payload.
-        // Payload usually has role if we put it there? 
-        // Let's look at `login/route.ts` or `auth.ts` to see what's in payload.
-        // For safety, let's strictly check userId.
-
-        if (order.userId !== payload.userId) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-
-        return NextResponse.json(order)
-    } catch (error) {
-        console.error('Failed to fetch order:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    if (!order || order.userId !== auth.userId) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
+
+    return NextResponse.json(order)
+  } catch (error) {
+    return jsonError(error)
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const auth = requireRoles(requireAuth(request), [Role.USER])
+    const body = await request.json()
+
+    const order = await prisma.order.findUnique({ where: { id: params.id } })
+    if (!order || order.userId !== auth.userId) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    // Users may cancel only early statuses
+    if (body.status === OrderStatus.CANCELLED) {
+      const cancellable: OrderStatus[] = [
+        OrderStatus.PENDING,
+        OrderStatus.CONFIRMED,
+      ]
+      if (!cancellable.includes(order.status)) {
+        throw new ApiError('Order cannot be cancelled now', 400)
+      }
+
+      const updated = await prisma.order.update({
+        where: { id: params.id },
+        data: { status: OrderStatus.CANCELLED },
+      })
+      return NextResponse.json(updated)
+    }
+
+    throw new ApiError('Unsupported update', 400)
+  } catch (error) {
+    return jsonError(error)
+  }
 }

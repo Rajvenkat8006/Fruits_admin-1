@@ -1,25 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Role } from '@prisma/client'
+import {
+  requireAuth,
+  requireAdmin,
+  jsonError,
+} from '@/lib/rbac'
 
-export async function GET() {
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest) {
   try {
-    const products = await prisma.product.findMany({ include: { category: true } })
+    requireAdmin(requireAuth(request))
 
-    // Map product.image -> imageUrl for frontend consistency
-    const formatted = products.map((p: any) => ({
+    const products = await prisma.product.findMany({
+      include: { category: true },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const formatted = products.map((p) => ({
       ...p,
       imageUrl: p.image || null,
     }))
 
     return NextResponse.json(formatted)
   } catch (error) {
-    console.error('Error fetching products:', error)
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
+    return jsonError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = requireAdmin(requireAuth(request))
+    // Master catalog create: Super Admin; Sub Admin can also add master products for their listings
+    if (auth.role !== Role.SUPER_ADMIN && auth.role !== Role.SUB_ADMIN) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const {
       name,
@@ -30,18 +47,23 @@ export async function POST(request: NextRequest) {
       imageUrl,
       stock,
       categoryId,
+      featured,
     } = body
 
-    // Accept imageUrl from frontend and map to image
-    const finalImage = image || imageUrl || ''
+    if (!name || !categoryId) {
+      return NextResponse.json(
+        { error: 'name and categoryId are required' },
+        { status: 400 }
+      )
+    }
 
-    // Generate slug if not provided
+    const finalImage = image || imageUrl || ''
     const slug = incomingSlug
       ? String(incomingSlug)
       : String(name || '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '')
 
     const product = await prisma.product.create({
       data: {
@@ -52,12 +74,12 @@ export async function POST(request: NextRequest) {
         image: finalImage,
         stock: parseInt(stock as any) || 0,
         categoryId,
+        featured: Boolean(featured),
       },
     })
 
     return NextResponse.json(product, { status: 201 })
   } catch (error) {
-    console.error('Failed to create product:', error)
-    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 })
+    return jsonError(error)
   }
 }

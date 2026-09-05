@@ -1,53 +1,106 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { Role } from '@prisma/client'
+import {
+  requireAuth,
+  requireRoles,
+  jsonError,
+  ApiError,
+} from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
-async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.headers.get('Authorization')?.split(' ')[1] || request.cookies.get('token')?.value
-  if (token) {
-    const payload = verifyToken(token)
-    if (payload?.userId) return payload.userId
-  }
-  return request.headers.get('x-user-id')
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getUserId(request)
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = requireRoles(requireAuth(request), [Role.USER])
 
     const cart = await prisma.cart.findMany({
-      where: { userId },
-      include: { product: true },
+      where: { userId: auth.userId },
+      include: {
+        product: true,
+        shop: { select: { id: true, name: true } },
+      },
+      orderBy: { addedAt: 'desc' },
     })
+
     return NextResponse.json(cart)
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch cart' }, { status: 500 })
+    return jsonError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getUserId(request)
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = requireRoles(requireAuth(request), [Role.USER])
+    const body = await request.json()
+    const { productId, shopId, quantity = 1, shopProductId } = body
 
-    const { productId, quantity } = await request.json()
+    if (!productId || !shopId) {
+      throw new ApiError('productId and shopId are required', 400)
+    }
 
-    // Fallback: If payload contains userId and we didn't get it from token, maybe allowed? 
-    // But getUserId handles headers. 
-    // If user sends userId in body, we ignore it to be secure and consistent with Token.
-    // If they rely on body userId without token, they will get 401 unless they sent x-user-id header.
+    const shopProduct = shopProductId
+      ? await prisma.shopProduct.findUnique({ where: { id: shopProductId } })
+      : await prisma.shopProduct.findUnique({
+          where: { shopId_productId: { shopId, productId } },
+        })
+
+    if (!shopProduct || !shopProduct.isAvailable) {
+      throw new ApiError('Product not available in this shop', 400)
+    }
+
+    if (shopProduct.stock < quantity) {
+      throw new ApiError('Insufficient stock', 400)
+    }
+
+    // Enforce single-shop cart
+    const existingOtherShop = await prisma.cart.findFirst({
+      where: {
+        userId: auth.userId,
+        NOT: { shopId },
+      },
+    })
+    if (existingOtherShop) {
+      throw new ApiError(
+        'Cart has items from another shop. Clear cart first.',
+        409
+      )
+    }
 
     const cartItem = await prisma.cart.upsert({
-      where: { userId_productId: { userId, productId } },
-      update: { quantity },
-      create: { userId, productId, quantity: quantity || 1 },
-      include: { product: true },
+      where: {
+        userId_productId_shopId: {
+          userId: auth.userId,
+          productId,
+          shopId,
+        },
+      },
+      update: {
+        quantity,
+        shopProductId: shopProduct.id,
+      },
+      create: {
+        userId: auth.userId,
+        productId,
+        shopId,
+        shopProductId: shopProduct.id,
+        quantity: quantity || 1,
+      },
+      include: { product: true, shop: { select: { id: true, name: true } } },
     })
+
     return NextResponse.json(cartItem, { status: 201 })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to add to cart' }, { status: 500 })
+    return jsonError(error)
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = requireRoles(requireAuth(request), [Role.USER])
+    await prisma.cart.deleteMany({ where: { userId: auth.userId } })
+    return NextResponse.json({ message: 'Cart cleared' })
+  } catch (error) {
+    return jsonError(error)
   }
 }
