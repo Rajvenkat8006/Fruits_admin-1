@@ -33,7 +33,7 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/orders')
+      const res = await fetch('/api/admin/orders', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setOrders(data)
@@ -151,10 +151,36 @@ export default function OrdersPage() {
                           onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
                         >
                           <option value="PENDING">Pending</option>
-                          <option value="PROCESSING">Processing</option>
+                          <option value="CONFIRMED">Confirmed</option>
+                          <option value="PREPARING">Preparing</option>
+                          <option value="READY">Ready</option>
+                          <option value="ASSIGNED">Assigned</option>
+                          <option value="PICKED_UP">Picked Up</option>
+                          <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
                           <option value="DELIVERED">Delivered</option>
                           <option value="CANCELLED">Cancelled</option>
                         </select>
+                        <button
+                          type="button"
+                          className="ml-2 text-xs text-green-700 hover:underline"
+                          onClick={async () => {
+                            const deliveryBoyId = prompt('Enter delivery boy user ID')
+                            if (!deliveryBoyId) return
+                            const res = await fetch(`/api/admin/orders/${order.id}/assign`, {
+                              method: 'POST',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ deliveryBoyId }),
+                            })
+                            if (res.ok) fetchOrders()
+                            else {
+                              const data = await res.json()
+                              alert(data.error || 'Assign failed')
+                            }
+                          }}
+                        >
+                          Assign
+                        </button>
                       </td>
                     </tr>
                     {expandedOrder === order.id && (

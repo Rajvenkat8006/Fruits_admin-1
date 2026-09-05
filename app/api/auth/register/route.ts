@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hashPassword, generateToken } from '@/lib/auth'
+import { hashPassword } from '@/lib/auth'
+import { Role, UserStatus } from '@prisma/client'
 
-// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -17,9 +17,6 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📝 Registration attempt started')
-
-    // Parse request body
     let body
     try {
       body = await request.json()
@@ -46,20 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user exists
-    let existingUser
-    try {
-      existingUser = await prisma.user.findUnique({ where: { email } })
-    } catch (err: any) {
-      return NextResponse.json(
-        {
-          error: 'Database error',
-          details: err.message,
-        },
-        { status: 500, headers: corsHeaders }
-      )
-    }
-
+    const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
       return NextResponse.json(
         { error: 'Email already registered' },
@@ -67,55 +51,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash password
-    let hashedPassword
-    try {
-      hashedPassword = await hashPassword(password)
-    } catch (err: any) {
-      return NextResponse.json(
-        { error: 'Password hashing failed', details: err.message },
-        { status: 500, headers: corsHeaders }
-      )
-    }
+    const hashedPassword = await hashPassword(password)
 
-    // Create user
-    let user
-    try {
-      user = await prisma.user.create({
-        data: {
-          email,
-          name,
-          password: hashedPassword,
-        },
-      })
-    } catch (err: any) {
-      return NextResponse.json(
-        { error: 'Database insert failed', details: err.message },
-        { status: 500, headers: corsHeaders }
-      )
-    }
-
-    // Optional: token generation test
-    try {
-      generateToken(user.id)
-    } catch (err) {
-      console.error("Token generation failed (ignored):", err)
-    }
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        password: hashedPassword,
+        role: Role.USER,
+        status: UserStatus.ACTIVE,
+      },
+    })
 
     return NextResponse.json(
       {
-        user: { id: user.id, email: user.email, name: user.name },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
         message: 'Registration successful. Please login.',
       },
       { status: 201, headers: corsHeaders }
     )
-
   } catch (error: any) {
     return NextResponse.json(
-      {
-        error: 'Registration failed',
-        details: error.message,
-      },
+      { error: 'Registration failed', details: error.message },
       { status: 500, headers: corsHeaders }
     )
   }

@@ -1,34 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { Role, UserStatus } from '@prisma/client'
+import {
+  requireAuth,
+  requireSuperAdmin,
+  jsonError,
+} from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/admin/users/[id] - Get Single User
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-    try {
-        const user = await prisma.user.findUnique({
-            where: { id: params.id },
-            select: { id: true, name: true, email: true,  createdAt: true }
-        })
-        if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-        return NextResponse.json(user)
-    } catch (error) {
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    requireSuperAdmin(requireAuth(request))
+
+    const user = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        orders: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            total: true,
+            status: true,
+            createdAt: true,
+            shopId: true,
+          },
+        },
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    return NextResponse.json(user)
+  } catch (error) {
+    return jsonError(error)
+  }
 }
 
-// DELETE /api/admin/users/[id] - Delete User
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-    try {
-        const token = request.cookies.get('token')?.value
-        if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    requireSuperAdmin(requireAuth(request))
 
-        // TODO: Strict Admin Check (Wait for RBAC implementation)
-
-        await prisma.user.delete({ where: { id: params.id } })
-        return NextResponse.json({ message: 'User deleted' })
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
+    const existing = await prisma.user.findUnique({ where: { id: params.id } })
+    if (!existing || existing.role !== Role.USER) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    const body = await request.json()
+    const status =
+      body.status === 'BLOCKED' ? UserStatus.BLOCKED : UserStatus.ACTIVE
+
+    const user = await prisma.user.update({
+      where: { id: params.id },
+      data: { status },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+      },
+    })
+
+    return NextResponse.json(user)
+  } catch (error) {
+    return jsonError(error)
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    requireSuperAdmin(requireAuth(request))
+
+    await prisma.user.update({
+      where: { id: params.id },
+      data: { status: UserStatus.BLOCKED },
+    })
+
+    return NextResponse.json({ message: 'User blocked' })
+  } catch (error) {
+    return jsonError(error)
+  }
 }

@@ -18,7 +18,7 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users')
+      const res = await fetch('/api/admin/users', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setUsers(data)
@@ -38,8 +38,9 @@ export default function UsersPage() {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return
 
     try {
-      const res = await fetch(`/api/admin/users?id=${id}`, {
+      const res = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       })
 
       if (res.ok) {

@@ -1,44 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { Role, UserStatus } from '@prisma/client'
+import {
+  requireAuth,
+  requireSuperAdmin,
+  jsonError,
+} from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-    try {
-        const token = request.cookies.get('token')?.value || request.headers.get('Authorization')?.split(' ')[1]
+  try {
+    requireSuperAdmin(requireAuth(request))
 
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
+    const users = await prisma.user.findMany({
+      where: { role: Role.USER },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        role: true,
+        createdAt: true,
+      },
+    })
 
-        const payload = await verifyToken(token)
-        if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-        }
-
-        const user = await prisma.user.findUnique({ where: { id: payload.userId } })
-        if (!user) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-
-        const users = await prisma.user.findMany({
-            orderBy: {
-                createdAt: 'desc'
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                createdAt: true
-            }
-        })
-
-        return NextResponse.json(users)
-    } catch (error) {
-        console.error('Failed to fetch users:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
+    return NextResponse.json(users)
+  } catch (error) {
+    return jsonError(error)
+  }
 }
-
-// DELETE moved to [id]/route.ts
