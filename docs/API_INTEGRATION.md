@@ -324,6 +324,7 @@ await SecureStore.setItemAsync('token', data.token)
 
 ## 9. Dev commands
 
+
 ```bash
 npx prisma db push
 npm run db:seed
